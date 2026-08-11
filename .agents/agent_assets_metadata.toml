@@ -1,0 +1,9 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "hwcVj_nXr9w-9WUs2RtJi"
+uri = "file://star-follower-root-corrected.zip"
+type = "unspecified"
+title = "Corrected GitHub Pages project ZIP"
+description = "Root-corrected project archive with index.html and package.json at the top level and no nested wrapper folder."
