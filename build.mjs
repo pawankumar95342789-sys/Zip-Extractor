@@ -3,6 +3,8 @@ import path from "node:path";
 
 const root = process.cwd();
 const dist = path.join(root, "dist");
+const publicDir = path.join(root, "public");
+const BASE_PATH = "/Zip-Extractor/";
 
 const runtimeFiles = [
   "favicon.svg",
@@ -17,14 +19,23 @@ const runtimeFiles = [
   "assets",
 ];
 
-const replaceAbsoluteAssetPaths = (html) =>
+const replaceAssetPaths = (html) =>
   html
-    .replaceAll('src="/assets/', 'src="./assets/')
-    .replaceAll('href="/assets/', 'href="./assets/')
-    .replaceAll('src="/supabase-api.js', 'src="./supabase-api.js')
-    .replaceAll('href="/star-icon.jpg', 'href="./star-icon.jpg')
-    .replaceAll('href="/favicon.svg', 'href="./favicon.svg')
-    .replaceAll('href="/manifest.json', 'href="./manifest.json');
+    .replaceAll('src="./assets/', `src="${BASE_PATH}assets/`)
+    .replaceAll('href="./assets/', `href="${BASE_PATH}assets/`)
+    .replaceAll('src="/assets/', `src="${BASE_PATH}assets/`)
+    .replaceAll('href="/assets/', `href="${BASE_PATH}assets/`)
+    .replaceAll('src="./supabase-api.js', `src="${BASE_PATH}supabase-api.js`)
+    .replaceAll('src="/supabase-api.js', `src="${BASE_PATH}supabase-api.js`)
+    .replaceAll('src="./timewall-overlay-cleanup.js', `src="${BASE_PATH}timewall-overlay-cleanup.js`)
+    .replaceAll('src="./star-follower-ui-fixes.js', `src="${BASE_PATH}star-follower-ui-fixes.js`)
+    .replaceAll('href="./star-icon.jpg', `href="${BASE_PATH}star-icon.jpg`)
+    .replaceAll('src="./star-icon.jpg', `src="${BASE_PATH}star-icon.jpg`)
+    .replaceAll('href="/star-icon.jpg', `href="${BASE_PATH}star-icon.jpg`)
+    .replaceAll('href="./favicon.svg', `href="${BASE_PATH}favicon.svg`)
+    .replaceAll('href="/favicon.svg', `href="${BASE_PATH}favicon.svg`)
+    .replaceAll('href="./manifest.json', `href="${BASE_PATH}manifest.json`)
+    .replaceAll('href="/manifest.json', `href="${BASE_PATH}manifest.json`);
 
 const rewriteBundleAssetPaths = async (directory) => {
   for (const file of await readdir(directory)) {
@@ -32,8 +43,12 @@ const rewriteBundleAssetPaths = async (directory) => {
     const filePath = path.join(directory, file);
     const source = await readFile(filePath, "utf8");
     const corrected = source
-      .replaceAll('"/assets/', '"./assets/')
-      .replaceAll("'\\/assets/", "'./assets/");
+      .replaceAll('"/assets/', `"${BASE_PATH}assets/`)
+      .replaceAll("'\\/assets/", `'${BASE_PATH}assets/`)
+      .replaceAll(
+        'base:"/".replace(/\\/$/,"")',
+        `base:"${BASE_PATH.slice(0, -1)}"`,
+      );
     await writeFile(filePath, corrected);
   }
 };
@@ -47,12 +62,14 @@ for (const file of runtimeFiles) {
 }
 
 const indexPath = path.join(dist, "index.html");
-const correctedIndex = replaceAbsoluteAssetPaths(
+const correctedIndex = replaceAssetPaths(
   await readFile(indexPath, "utf8"),
 );
 
 await writeFile(indexPath, correctedIndex);
 await writeFile(path.join(dist, "404.html"), correctedIndex);
+await mkdir(publicDir, { recursive: true });
+await writeFile(path.join(publicDir, "404.html"), correctedIndex);
 await rewriteBundleAssetPaths(path.join(dist, "assets"));
 
 console.log(`Built GitHub Pages site in ${path.relative(root, dist)}/`);

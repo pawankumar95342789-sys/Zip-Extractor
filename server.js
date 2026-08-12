@@ -3,7 +3,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const PORT = process.env.PORT || 5000;
-const ROOT = __dirname;
+const ROOT = fs.existsSync(path.join(__dirname, "dist"))
+  ? path.join(__dirname, "dist")
+  : __dirname;
+const BASE_PATH = "/Zip-Extractor";
 
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -25,7 +28,10 @@ function safePath(requestPath) {
 }
 
 const server = http.createServer((request, response) => {
-  const requestPath = new URL(request.url || "/", "http://localhost").pathname;
+  const requestedPath = new URL(request.url || "/", "http://localhost").pathname;
+  const requestPath = requestedPath.startsWith(BASE_PATH)
+    ? requestedPath.slice(BASE_PATH.length) || "/"
+    : requestedPath;
   const requestedFile = safePath(requestPath);
   const filePath =
     requestedFile && fs.existsSync(requestedFile) && fs.statSync(requestedFile).isFile()
