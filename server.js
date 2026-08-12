@@ -1,40 +1,61 @@
-const express = require('express');
-const path = require('path');
-const fs = require('fs');
+const http = require("node:http");
+const fs = require("node:fs");
+const path = require("node:path");
 
-const app = express();
 const PORT = process.env.PORT || 5000;
+const ROOT = __dirname;
 
-// Serve static files from workspace root
-app.use(express.static(__dirname, {
-  // Don't set cache headers here — we'll handle them manually
-  etag: true,
-  lastModified: true,
-}));
+const MIME_TYPES = {
+  ".css": "text/css; charset=utf-8",
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+  ".txt": "text/plain; charset=utf-8",
+};
 
-// Apply custom cache headers matching _headers file
-app.use((req, res, next) => {
-  const noCache = ['/index.html', '/sw.js', '/manifest.json', '/supabase-api.js', '/'];
-  const p = req.path;
+function safePath(requestPath) {
+  const decodedPath = decodeURIComponent(requestPath);
+  const relativePath = decodedPath === "/" ? "index.html" : decodedPath.slice(1);
+  const filePath = path.resolve(ROOT, relativePath);
+  return filePath.startsWith(`${ROOT}${path.sep}`) ? filePath : null;
+}
 
-  if (noCache.includes(p) || p === '/') {
-    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
-  } else if (p.startsWith('/assets/')) {
-    res.set('Cache-Control', 'public, max-age=31536000, immutable');
-  }
+const server = http.createServer((request, response) => {
+  const requestPath = new URL(request.url || "/", "http://localhost").pathname;
+  const requestedFile = safePath(requestPath);
+  const filePath =
+    requestedFile && fs.existsSync(requestedFile) && fs.statSync(requestedFile).isFile()
+      ? requestedFile
+      : path.join(ROOT, "index.html");
 
-  res.set('X-Frame-Options', 'SAMEORIGIN');
-  res.set('X-Content-Type-Options', 'nosniff');
-  next();
+  fs.readFile(filePath, (error, content) => {
+    if (error) {
+      response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+      response.end("Unable to read the requested file.");
+      return;
+    }
+
+    const extension = path.extname(filePath).toLowerCase();
+    const headers = {
+      "Content-Type": MIME_TYPES[extension] || "application/octet-stream",
+      "X-Content-Type-Options": "nosniff",
+    };
+
+    if (path.basename(filePath) === "index.html") {
+      headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+    } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+      headers["Cache-Control"] = "public, max-age=31536000, immutable";
+    }
+
+    response.writeHead(200, headers);
+    response.end(content);
+  });
 });
 
-// SPA fallback — all routes serve index.html (mirrors _redirects: /* /index.html 200)
-app.get('/{*splat}', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-app.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`Star Follower running on port ${PORT}`);
 });
