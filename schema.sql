@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
   name          TEXT        UNIQUE NOT NULL CHECK (length(trim(name)) >= 2),
   password_hash TEXT        NOT NULL,
   coins         INTEGER     NOT NULL DEFAULT 50 CHECK (coins >= 0),
-  recovery_code TEXT        UNIQUE NOT NULL DEFAULT floor(random() * 9000000000 + 1000000000)::BIGINT::TEXT,
+  recovery_code TEXT        UNIQUE NOT NULL DEFAULT floor(random() * 900000 + 100000)::BIGINT::TEXT,
   referral_code TEXT        UNIQUE NOT NULL DEFAULT upper(encode(gen_random_bytes(4), 'hex')),
   referred_by   UUID        REFERENCES users(id),
   device_id     TEXT        DEFAULT '',
@@ -69,10 +69,18 @@ CREATE TABLE IF NOT EXISTS app_config (
   value TEXT NOT NULL DEFAULT ''
 );
 
--- Recovery codes are numeric and exactly 10 digits. Keep this default in
--- sync for databases created from an earlier version of this script.
+-- Recovery codes are numeric and exactly 6 digits. Keep existing databases
+-- synchronized with the six-digit UI and Supabase API validation.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_recovery_code_10_digits;
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_recovery_code_6_digits;
 ALTER TABLE users
-  ALTER COLUMN recovery_code SET DEFAULT floor(random() * 9000000000 + 1000000000)::BIGINT::TEXT;
+  ALTER COLUMN recovery_code SET DEFAULT floor(random() * 900000 + 100000)::BIGINT::TEXT;
+UPDATE users
+SET recovery_code = floor(random() * 900000 + 100000)::BIGINT::TEXT
+WHERE recovery_code !~ '^[0-9]{6}$';
+ALTER TABLE users
+  ADD CONSTRAINT users_recovery_code_6_digits
+  CHECK (recovery_code ~ '^[0-9]{6}$');
 
 -- ============================================================
 -- SEED DATA

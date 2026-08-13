@@ -1,11 +1,11 @@
--- Star Follower — Recovery code format migration
+-- Star Follower — Six-digit recovery code migration
 -- Run this once in Supabase for an existing database.
--- New and repaired codes are numeric and exactly 6 digits.
 
 ALTER TABLE users
   DROP CONSTRAINT IF EXISTS users_recovery_code_10_digits;
 ALTER TABLE users
   DROP CONSTRAINT IF EXISTS users_recovery_code_6_digits;
+
 ALTER TABLE users
   ALTER COLUMN recovery_code SET DEFAULT floor(random() * 900000 + 100000)::BIGINT::TEXT;
 

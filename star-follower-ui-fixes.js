@@ -5,13 +5,23 @@
   var cachedVideoUrl = '';
   var userRequest = null;
   var recoveryForm = null;
+  var APP_BASE_PATH = '/Zip-Extractor';
+
+  function appPath() {
+    var path = window.location.pathname;
+    if (path === APP_BASE_PATH) return '/';
+    if (path.indexOf(APP_BASE_PATH + '/') === 0) {
+      return path.slice(APP_BASE_PATH.length) || '/';
+    }
+    return path;
+  }
 
   function isLoggedIn() {
     return !!(localStorage.getItem('sf_user_id') && localStorage.getItem('sf_token'));
   }
 
   function updateRouteClasses() {
-    var path = window.location.pathname.replace(/\/+$/, '') || '/';
+    var path = appPath().replace(/\/+$/, '') || '/';
     document.body.classList.toggle('sf-login', path === '/login');
     document.body.classList.toggle('sf-home', path === '/' && isLoggedIn());
     document.body.classList.toggle('sf-earn', path === '/earn' && isLoggedIn());
@@ -147,11 +157,11 @@
     existing.style.color = isError ? '#f87171' : '#4ade80';
   }
 
-  function submitTenDigitRecovery(form, input, button) {
-    var code = String(input.value || '').replace(/\D/g, '').slice(0, 10);
+  function submitSixDigitRecovery(form, input, button) {
+    var code = String(input.value || '').replace(/\D/g, '').slice(0, 6);
     input.value = code;
-    if (!/^\d{10}$/.test(code)) {
-      showRecoveryMessage('कृपया 10 अंकों का Recovery Code डालें।', true);
+    if (!/^\d{6}$/.test(code)) {
+      showRecoveryMessage('Please enter exactly 6 digits. / कृपया 6 अंक दर्ज करें।', true);
       return;
     }
 
@@ -175,7 +185,7 @@
       }
       localStorage.setItem('sf_user_id', result.data.userId);
       localStorage.setItem('sf_token', result.data.token);
-      window.location.replace('/');
+      window.location.replace(APP_BASE_PATH + '/');
     }).catch(function (error) {
       button.disabled = false;
       button.textContent = 'Recover Account';
@@ -184,7 +194,7 @@
   }
 
   function patchRecoveryForm() {
-    if ((window.location.pathname.replace(/\/+$/, '') || '/') !== '/login') return;
+    if ((appPath().replace(/\/+$/, '') || '/') !== '/login') return;
     var input = document.querySelector(
       '#root input[placeholder*="Recovery"], #root input[placeholder*="recovery"]'
     );
@@ -196,37 +206,53 @@
     var walker = document.createTreeWalker(form, NodeFilter.SHOW_TEXT);
     var node;
     while ((node = walker.nextNode())) {
-      if (node.nodeValue.indexOf('6-अंकीय') !== -1) {
-        node.nodeValue = node.nodeValue.replace(/6-अंकीय/g, '10-अंकीय');
+      if (node.nodeValue.indexOf('10-अंकीय') !== -1) {
+        node.nodeValue = node.nodeValue.replace(/10-अंकीय/g, '6-अंकीय');
       }
-      if (node.nodeValue.indexOf('6-digit Recovery Code') !== -1) {
-        node.nodeValue = node.nodeValue.replace(/6-digit Recovery Code/g, '10-digit Recovery Code');
+      if (node.nodeValue.indexOf('10-digit Recovery Code') !== -1) {
+        node.nodeValue = node.nodeValue.replace(/10-digit Recovery Code/g, '6-digit Recovery Code');
       }
     }
 
-    input.placeholder = '10-digit Recovery Code';
-    input.maxLength = 10;
-    input.setAttribute('aria-label', '10-digit Recovery Code');
+    input.placeholder = '6-digit Recovery Code';
+    input.maxLength = 6;
+    input.setAttribute('aria-label', '6-digit Recovery Code / 6 अंकों का Recovery Code');
     input.setAttribute('inputmode', 'numeric');
-    input.setAttribute('pattern', '[0-9]{10}');
+    input.setAttribute('pattern', '[0-9]{6}');
 
     if (input.dataset.sfRecoveryPatched !== 'true') {
       input.dataset.sfRecoveryPatched = 'true';
       input.addEventListener('input', function (event) {
         event.stopImmediatePropagation();
-        var value = String(input.value || '').replace(/\D/g, '').slice(0, 10);
+        var value = String(input.value || '').replace(/\D/g, '').slice(0, 6);
         if (input.value !== value) input.value = value;
-        button.disabled = value.length !== 10;
+        button.disabled = value.length !== 6;
       }, true);
       form.addEventListener('submit', function (event) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        submitTenDigitRecovery(form, input, button);
+        submitSixDigitRecovery(form, input, button);
       }, true);
     }
 
     recoveryForm = form;
-    button.disabled = input.value.length !== 10;
+    button.disabled = input.value.length !== 6;
+  }
+
+  function ensureActionButtonVisibility() {
+    var buttons = document.querySelectorAll('#root button, #root [role="button"]');
+    for (var i = 0; i < buttons.length; i++) {
+      var button = buttons[i];
+      var text = String(button.textContent || '').trim().toLowerCase();
+      var isPrimary =
+        text.indexOf('login') !== -1 ||
+        text.indexOf('sign up') !== -1 ||
+        text.indexOf('recover') !== -1 ||
+        text.indexOf('लॉगिन') !== -1 ||
+        text.indexOf('साइन') !== -1 ||
+        text.indexOf('रिकवर') !== -1;
+      if (isPrimary) button.classList.add('sf-primary-action');
+    }
   }
 
   function removeEmbeddedTutorialPlayers() {
@@ -272,8 +298,9 @@
     updateRouteClasses();
     document.body.classList.toggle(
       'sf-services',
-      (window.location.pathname.replace(/\/+$/, '') || '/') === '/services' && isLoggedIn()
+      (appPath().replace(/\/+$/, '') || '/') === '/services' && isLoggedIn()
     );
+    ensureActionButtonVisibility();
     ensureHeaderCoins();
     cleanHomeHero();
     cleanEarnPage();
